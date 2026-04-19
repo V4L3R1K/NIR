@@ -13,10 +13,14 @@ include_directories(
 set(SOURCES
     src/main.cpp
 
-    src/model/io/ImageLoader.cpp
-    src/model/io/ImageSaver.cpp
+    src/model/core/Image.cpp
+    src/model/core/Secret.cpp
 
     src/model/steganography/lsb/LSBEncoder.cpp
+
+    src/controller/Controller.cpp
+
+    src/view/cli/CLIParser.cpp
 )
 
 add_executable(main ${SOURCES})

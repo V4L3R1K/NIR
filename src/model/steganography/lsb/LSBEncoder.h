@@ -1,7 +1,9 @@
 #pragma once
+
 #include "../base/StegoAlgorithm.h"
 
-class LSBEncoder : public StegoAlgorithm {
+class LSBEncoder : public StegoAlgorithm
+{
 public:
-    Image encode(const Image& input) override;
+    Image encode(const Image &input, const SecretBytes &secret) override;
 };
