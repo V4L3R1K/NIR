@@ -62,6 +62,11 @@ Command CLIParser::parse(int argc, char *argv[])
         {
             cmd.output = stripQuotes(argv[++i]);
         }
+
+        else if (arg == "--lsb-count" && i + 1 < argc)
+        {
+            cmd.lsb_count = atoi(argv[++i]);
+        }
     }
 
     return cmd;

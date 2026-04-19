@@ -27,3 +27,26 @@ SecretBytes Secret::load(const std::string &path)
 
     return buffer;
 }
+
+void Secret::save(const std::string &path, const SecretBytes &secret)
+{
+    std::ofstream file(path, std::ios::binary);
+
+    if (!file)
+    {
+        throw std::runtime_error("failed to open file for writing: " + path);
+    }
+
+    if (!secret.empty())
+    {
+        if (!file.write(reinterpret_cast<const char *>(secret.data()), secret.size()))
+        {
+            throw std::runtime_error("failed to write file: " + path);
+        }
+    }
+
+    if (!file.good())
+    {
+        throw std::runtime_error("file stream error after writing: " + path);
+    }
+}

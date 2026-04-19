@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 enum class CommandType
 {
@@ -19,4 +20,5 @@ struct Command
     std::string input_compare = "";          // -i
     std::string secret = "";                 // -s
     std::string output = "";                 // -o
+    uint8_t lsb_count = 2;                   // --lsb-count
 };
