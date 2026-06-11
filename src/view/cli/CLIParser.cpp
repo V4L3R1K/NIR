@@ -42,13 +42,11 @@ Command CLIParser::parse(int argc, char *argv[])
         // input
         else if (arg == "-i" && i + 1 < argc)
         {
-            cmd.input = stripQuotes(argv[++i]);
-        }
-
-        // input 2
-        else if (arg == "-i" && i + 1 < argc)
-        {
-            cmd.input_compare = stripQuotes(argv[++i]);
+            std::string value = stripQuotes(argv[++i]);
+            if (cmd.input.empty())
+                cmd.input = value;
+            else
+                cmd.input_compare = value;
         }
 
         // secret
