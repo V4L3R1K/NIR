@@ -2,6 +2,10 @@
 
 #include "../base/CompareAlgorithm.h"
 
+#include <cmath>
+#include <stdexcept>
+#include <vector>
+
 class SSIM : public CompareAlgorithm
 {
 public:

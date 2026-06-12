@@ -2,6 +2,9 @@
 
 #include "../base/CompareAlgorithm.h"
 
+#include <cmath>
+#include <stdexcept>
+
 class PSNR : public CompareAlgorithm
 {
 public:
