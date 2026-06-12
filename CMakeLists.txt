@@ -18,6 +18,9 @@ set(SOURCES
 
     src/model/steganography/lsb/LSBEncoder.cpp
 
+    src/model/compare/psnr/PSNR.cpp
+    src/model/compare/ssim/SSIM.cpp
+
     src/controller/Controller.cpp
 
     src/view/cli/CLIParser.cpp

@@ -39,7 +39,30 @@ void Controller::perform(const Command &cmd)
             throw std::runtime_error("unknown algorithm");
         break;
     case CommandType::COMPARE:
+    {
+        CompareAlgorithm *algo = nullptr;
+
+        if (cmd.algorithm == "PSNR")
+            algo = new PSNR();
+        else if (cmd.algorithm == "SSIM")
+            algo = new SSIM();
+        else
+            throw std::runtime_error("unknown compare algorithm");
+
+        Image img1, img2;
+        img1.load(cmd.input);
+        img2.load(cmd.input_compare);
+
+        double result = algo->compare(img1, img2);
+
+        if (cmd.algorithm == "PSNR")
+            std::cout << "PSNR: " << result << " dB" << std::endl;
+        else
+            std::cout << "SSIM: " << result << std::endl;
+
+        delete algo;
         break;
+    }
     default:
         throw std::runtime_error("unknown command");
         break;
