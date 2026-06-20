@@ -61,9 +61,16 @@ Command CLIParser::parse(int argc, char *argv[])
             cmd.output = stripQuotes(argv[++i]);
         }
 
+        // сколько битов are least significant
         else if (arg == "--lsb-count" && i + 1 < argc)
         {
             cmd.lsb_count = atoi(argv[++i]);
+        }
+
+        // качество джипега
+        else if (arg == "--jpeg-quality" && i + 1 < argc)
+        {
+            cmd.jpeg_quality = atoi(argv[++i]);
         }
     }
 

@@ -21,7 +21,7 @@ void Controller::perform(const Command &cmd)
         }
         else if (cmd.algorithm == "DCT")
         {
-            DCTEncoder encoder(95);
+            DCTEncoder encoder(cmd.jpeg_quality);
 
             Image img;
             img.load(cmd.input);
@@ -48,7 +48,7 @@ void Controller::perform(const Command &cmd)
         }
         else if (cmd.algorithm == "DCT")
         {
-            DCTEncoder encoder(95);
+            DCTEncoder encoder(cmd.jpeg_quality);
 
             SecretBytes result = encoder.decode(cmd.input);
 
