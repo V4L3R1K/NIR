@@ -3,8 +3,8 @@ set -e
 
 IMAGE="tests/images/jpg/lena_2048.jpg"
 
-QUALITY_CSV="quality_sweep.csv"
-PAYLOAD_CSV="payload_sweep.csv"
+QUALITY_CSV="DCT_quality_sweep.csv"
+PAYLOAD_CSV="DCT_payload_sweep.csv"
 
 TEMP_SECRET="secret.bin"
 TEMP_DECODED="secret_decoded.bin"

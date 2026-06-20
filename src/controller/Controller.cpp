@@ -22,6 +22,13 @@ void Controller::perform(const Command &cmd)
             // 32 бита — заголовок с размером секрета
             std::cout << (cap >= 32 ? (cap - 32) / 8 : 0) << std::endl;
         }
+        else if (cmd.algorithm == "DWT")
+        {
+            DWTEncoder encoder;
+            size_t cap = encoder.get_capacity(img);
+            // 32 бита — заголовок с размером секрета, но get_capacity уже возвращает байты
+            std::cout << cap << std::endl;
+        }
         else
             throw std::runtime_error("unknown algorithm for capacity");
 
@@ -56,6 +63,17 @@ void Controller::perform(const Command &cmd)
 
             encoder.encode(img, secret, cmd.output);
         }
+        else if (cmd.algorithm == "DWT")
+        {
+            DWTEncoder encoder;
+
+            Image img;
+            img.load(cmd.input);
+
+            SecretBytes secret = Secret::load(cmd.secret);
+
+            encoder.encode(img, secret, cmd.output);
+        }
         else
             throw std::runtime_error("unknown algorithm");
         break;
@@ -75,6 +93,14 @@ void Controller::perform(const Command &cmd)
         else if (cmd.algorithm == "DCT")
         {
             DCTEncoder encoder(cmd.jpeg_quality);
+
+            SecretBytes result = encoder.decode(cmd.input);
+
+            Secret::save(cmd.output, result);
+        }
+        else if (cmd.algorithm == "DWT")
+        {
+            DWTEncoder encoder;
 
             SecretBytes result = encoder.decode(cmd.input);
 
