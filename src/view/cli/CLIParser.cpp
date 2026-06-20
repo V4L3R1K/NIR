@@ -72,6 +72,12 @@ Command CLIParser::parse(int argc, char *argv[])
         {
             cmd.jpeg_quality = atoi(argv[++i]);
         }
+
+        // вывод вместимости контейнера
+        else if (arg == "--capacity")
+        {
+            cmd.capacity = true;
+        }
     }
 
     return cmd;

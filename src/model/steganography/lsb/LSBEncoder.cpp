@@ -2,7 +2,7 @@
 
 size_t LSBEncoder::get_capacity(const Image &input)
 {
-    return input.width * input.height * input.channels * LSB_count / 8;
+    return input.width * input.height * input.channels * LSB_count / 8 - 32;
 }
 
 Image LSBEncoder::encode(const Image &input, const SecretBytes &secret)
@@ -10,7 +10,7 @@ Image LSBEncoder::encode(const Image &input, const SecretBytes &secret)
     uint32_t secret_size = static_cast<uint32_t>(secret.size());
     size_t total_bytes_to_store = sizeof(uint32_t) + secret.size();
 
-    if (get_capacity(input) < total_bytes_to_store)
+    if (get_capacity(input) < secret_size)
         throw std::runtime_error("Secret is too large for this image");
 
     Image out = input;

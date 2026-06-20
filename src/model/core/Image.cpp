@@ -8,10 +8,12 @@
 
 void Image::load(const std::string &path)
 {
-    unsigned char *raw = stbi_load(path.c_str(), &(this->width), &(this->height), &(this->channels), 3);
+    int loaded_channels = 0;
+    unsigned char *raw = stbi_load(path.c_str(), &(this->width), &(this->height), &loaded_channels, 3);
     if (!raw)
         throw std::runtime_error("Failed to load image");
 
+    this->channels = 3;
     this->data.assign(raw, raw + this->width * this->height * 3);
 
     stbi_image_free(raw);

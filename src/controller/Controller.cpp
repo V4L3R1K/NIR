@@ -2,6 +2,32 @@
 
 void Controller::perform(const Command &cmd)
 {
+    if (cmd.capacity)
+    {
+        Image img;
+        img.load(cmd.input);
+
+        if (cmd.algorithm == "LSB")
+        {
+            LSBEncoder encoder;
+            encoder.LSB_count = cmd.lsb_count;
+            size_t cap = encoder.get_capacity(img);
+            // 4 байта — заголовок с размером секрета
+            std::cout << (cap >= 4 ? cap - 4 : 0) << std::endl;
+        }
+        else if (cmd.algorithm == "DCT")
+        {
+            DCTEncoder encoder(cmd.jpeg_quality);
+            size_t cap = encoder.get_capacity(img);
+            // 32 бита — заголовок с размером секрета
+            std::cout << (cap >= 32 ? (cap - 32) / 8 : 0) << std::endl;
+        }
+        else
+            throw std::runtime_error("unknown algorithm for capacity");
+
+        return;
+    }
+
     switch (cmd.type)
     {
     case CommandType::ENCODE:
@@ -75,9 +101,9 @@ void Controller::perform(const Command &cmd)
         double result = algo->compare(img1, img2);
 
         if (cmd.algorithm == "PSNR")
-            std::cout << "PSNR: " << result << " dB" << std::endl;
-        else
-            std::cout << "SSIM: " << result << std::endl;
+            std::cout << result << std::endl;
+        else if (cmd.algorithm == "SSIM")
+            std::cout << result << std::endl;
 
         delete algo;
         break;

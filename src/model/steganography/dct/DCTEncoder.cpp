@@ -4,6 +4,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <cstdio>
+#include <iostream>
 
 #include <jpeglib.h>
 
@@ -384,12 +385,33 @@ void DCTEncoder::encode(const Image &input,
     jvirt_barray_ptr *coef_arrays = jpeg_read_coefficients(&dinfo);
 
     size_t capacity = 0;
+
     for (int comp = 0; comp < dinfo.num_components; ++comp)
     {
         const jpeg_component_info &ci = dinfo.comp_info[comp];
-        capacity += static_cast<size_t>(ci.width_in_blocks) *
-                    static_cast<size_t>(ci.height_in_blocks) *
-                    63ULL;
+
+        for (JDIMENSION row = 0; row < ci.height_in_blocks; ++row)
+        {
+            JBLOCKARRAY block_rows = (*dinfo.mem->access_virt_barray)(
+                reinterpret_cast<j_common_ptr>(&dinfo),
+                coef_arrays[comp],
+                row,
+                static_cast<JDIMENSION>(1),
+                FALSE);
+
+            for (JDIMENSION col = 0; col < ci.width_in_blocks; ++col)
+            {
+                JCOEFPTR block = block_rows[0][col];
+
+                for (int k = 1; k < DCT_COEF_COUNT; ++k)
+                {
+                    if (coefficient_usable(block[k]))
+                    {
+                        ++capacity;
+                    }
+                }
+            }
+        }
     }
 
     if (payload_bits.size() > capacity)
