@@ -3,42 +3,42 @@ set -e
 
 IMAGE="tests/images/png/lena_2048.png"
 
-COUNT_CSV="LSB_count_sweep.csv"
-PAYLOAD_CSV="LSB_payload_sweep.csv"
+COUNT_CSV="PVD_count_sweep.csv"
+PAYLOAD_CSV="PVD_payload_sweep.csv"
 
 TEMP_SECRET="secret.bin"
 TEMP_DECODED="secret_decoded.bin"
 TEMP_IMAGE="out.png"
 
 # quality sweep
-echo "Running LSB count sweep"
+echo "Running PVD count sweep"
 
-echo "lsb_count,capacity,psnr,ssim,result" > "$COUNT_CSV"
+echo "pvd_count,capacity,psnr,ssim,result" > "$COUNT_CSV"
 
-for LSB_COUNT in 1 2 3 4 5 6 7 8
+for PVD_COUNT in 1 2 3 4 5 6 7
 do
     CAPACITY=$(./main \
-        -A LSB \
+        -A PVD \
         -i "$IMAGE" \
         --capacity \
-        --lsb-count "$LSB_COUNT")
+        --pvd-count "$PVD_COUNT")
 
     head -c "$CAPACITY" /dev/urandom > "$TEMP_SECRET"
 
-    echo "LSB count = $LSB_COUNT"
+    echo "PVD count = $PVD_COUNT"
 
     ./main -E \
-        -A LSB \
+        -A PVD \
         -i "$IMAGE" \
         -s "$TEMP_SECRET" \
         -o "$TEMP_IMAGE" \
-        --lsb-count "$LSB_COUNT"
+        --pvd-count "$PVD_COUNT"
 
     ./main -D \
-        -A LSB \
+        -A PVD \
         -i "$TEMP_IMAGE" \
         -o "$TEMP_DECODED" \
-        --lsb-count "$LSB_COUNT"
+        --pvd-count "$PVD_COUNT"
 
     if diff "$TEMP_SECRET" "$TEMP_DECODED" > /dev/null
     then
@@ -50,21 +50,21 @@ do
     PSNR=$(./main -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
     SSIM=$(./main -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
 
-    echo "$LSB_COUNT,$CAPACITY,$PSNR,$SSIM,$RESULT" \
+    echo "$PVD_COUNT,$CAPACITY,$PSNR,$SSIM,$RESULT" \
         >> "$COUNT_CSV"
 done
 
 # payload sweep
 
-LSB_COUNT=1
+PVD_COUNT=1
 
 CAPACITY=$(./main \
-    -A LSB \
+    -A PVD \
     -i "$IMAGE" \
     --capacity \
-    --lsb-count "$LSB_COUNT")
+    --pvd-count "$PVD_COUNT")
 
-echo "Running payload sweep (lsb-count=$LSB_COUNT)"
+echo "Running payload sweep (pvd-count=$PVD_COUNT)"
 
 echo "payload_bytes,payload_percent,psnr,ssim,result" \
     > "$PAYLOAD_CSV"
@@ -83,17 +83,17 @@ do
     head -c "$PAYLOAD" /dev/urandom > "$TEMP_SECRET"
 
     ./main -E \
-        -A LSB \
+        -A PVD \
         -i "$IMAGE" \
         -s "$TEMP_SECRET" \
         -o "$TEMP_IMAGE" \
-        --lsb-count "$LSB_COUNT"
+        --pvd-count "$PVD_COUNT"
 
     ./main -D \
-        -A LSB \
+        -A PVD \
         -i "$TEMP_IMAGE" \
         -o "$TEMP_DECODED" \
-        --lsb-count "$LSB_COUNT"
+        --pvd-count "$PVD_COUNT"
 
     if diff "$TEMP_SECRET" "$TEMP_DECODED" > /dev/null
     then

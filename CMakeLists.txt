@@ -29,6 +29,7 @@ set(SOURCES
     src/model/steganography/lsb/LSBEncoder.cpp
     src/model/steganography/dct/DCTEncoder.cpp
     src/model/steganography/dwt/DWTEncoder.cpp
+    src/model/steganography/pvd/PVDEncoder.cpp
 
     src/model/compare/psnr/PSNR.cpp
     src/model/compare/ssim/SSIM.cpp

@@ -21,6 +21,7 @@ struct Command
     std::string secret = "";                 // -s
     std::string output = "";                 // -o
     uint8_t lsb_count = 2;                   // --lsb-count
+    uint8_t pvd_count = 1;                   // --pvd-count
     int jpeg_quality = 90;                   // --jpeg-quality
     bool capacity = false;                   // --capacity
 };

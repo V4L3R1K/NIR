@@ -67,6 +67,12 @@ Command CLIParser::parse(int argc, char *argv[])
             cmd.lsb_count = atoi(argv[++i]);
         }
 
+        // количество бит для PVD
+        else if (arg == "--pvd-count" && i + 1 < argc)
+        {
+            cmd.pvd_count = atoi(argv[++i]);
+        }
+
         // качество джипега
         else if (arg == "--jpeg-quality" && i + 1 < argc)
         {

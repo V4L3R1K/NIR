@@ -29,6 +29,13 @@ void Controller::perform(const Command &cmd)
             // 32 бита — заголовок с размером секрета, но get_capacity уже возвращает байты
             std::cout << cap << std::endl;
         }
+        else if (cmd.algorithm == "PVD")
+        {
+            PVDEncoder encoder;
+            encoder.PVD_count = cmd.pvd_count;
+            size_t cap = encoder.get_capacity(img);
+            std::cout << cap << std::endl;
+        }
         else
             throw std::runtime_error("unknown algorithm for capacity");
 
@@ -74,6 +81,20 @@ void Controller::perform(const Command &cmd)
 
             encoder.encode(img, secret, cmd.output);
         }
+        else if (cmd.algorithm == "PVD")
+        {
+            PVDEncoder encoder;
+            encoder.PVD_count = cmd.pvd_count;
+
+            Image img;
+            img.load(cmd.input);
+
+            SecretBytes secret = Secret::load(cmd.secret);
+
+            Image result = encoder.encode(img, secret);
+
+            result.savePNG(cmd.output);
+        }
         else
             throw std::runtime_error("unknown algorithm");
         break;
@@ -103,6 +124,18 @@ void Controller::perform(const Command &cmd)
             DWTEncoder encoder;
 
             SecretBytes result = encoder.decode(cmd.input);
+
+            Secret::save(cmd.output, result);
+        }
+        else if (cmd.algorithm == "PVD")
+        {
+            PVDEncoder encoder;
+            encoder.PVD_count = cmd.pvd_count;
+
+            Image img;
+            img.load(cmd.input);
+
+            SecretBytes result = encoder.decode(img);
 
             Secret::save(cmd.output, result);
         }
