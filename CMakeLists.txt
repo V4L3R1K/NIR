@@ -5,7 +5,13 @@ project(NIR LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Поиск libjpeg
+# -O3
+set(CMAKE_CXX_FLAGS "-O3 -march=native")
+
+# OpenMP
+find_package(OpenMP REQUIRED)
+
+# libjpeg
 find_package(JPEG REQUIRED)
 
 include_directories(
@@ -32,4 +38,4 @@ set(SOURCES
 )
 
 add_executable(main ${SOURCES})
-target_link_libraries(main ${JPEG_LIBRARIES})
+target_link_libraries(main ${JPEG_LIBRARIES} OpenMP::OpenMP_CXX)
