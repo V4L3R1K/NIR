@@ -19,6 +19,17 @@ void Controller::perform(const Command &cmd)
 
             result.savePNG(cmd.output);
         }
+        else if (cmd.algorithm == "DCT")
+        {
+            DCTEncoder encoder(95);
+
+            Image img;
+            img.load(cmd.input);
+
+            SecretBytes secret = Secret::load(cmd.secret);
+
+            encoder.encode(img, secret, cmd.output);
+        }
         else
             throw std::runtime_error("unknown algorithm");
         break;
@@ -32,6 +43,14 @@ void Controller::perform(const Command &cmd)
             img.load(cmd.input);
 
             SecretBytes result = encoder.decode(img);
+
+            Secret::save(cmd.output, result);
+        }
+        else if (cmd.algorithm == "DCT")
+        {
+            DCTEncoder encoder(95);
+
+            SecretBytes result = encoder.decode(cmd.input);
 
             Secret::save(cmd.output, result);
         }

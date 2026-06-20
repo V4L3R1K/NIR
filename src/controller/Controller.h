@@ -5,6 +5,7 @@
 
 #include "../view/cli/Command.h"
 #include "../model/steganography/lsb/LSBEncoder.h"
+#include "../model/steganography/dct/DCTEncoder.h"
 #include "../model/core/Image.h"
 #include "../model/core/Secret.h"
 #include "../model/compare/psnr/PSNR.h"
