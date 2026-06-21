@@ -8,4 +8,4 @@ make
 cp main ../main
 cd ..
 
-rm ./*.csv
+rm -f ./*.csv
