@@ -17,7 +17,7 @@ echo "pvd_count,capacity,psnr,ssim,result" > "$COUNT_CSV"
 
 for PVD_COUNT in 1 2 3 4 5 6 7
 do
-    CAPACITY=$(./main \
+    CAPACITY=$(NIR \
         -A PVD \
         -i "$IMAGE" \
         --capacity \
@@ -27,14 +27,14 @@ do
 
     echo "PVD count = $PVD_COUNT"
 
-    ./main -E \
+    NIR -E \
         -A PVD \
         -i "$IMAGE" \
         -s "$TEMP_SECRET" \
         -o "$TEMP_IMAGE" \
         --pvd-count "$PVD_COUNT"
 
-    ./main -D \
+    NIR -D \
         -A PVD \
         -i "$TEMP_IMAGE" \
         -o "$TEMP_DECODED" \
@@ -47,8 +47,8 @@ do
         RESULT="FAIL"
     fi
 
-    PSNR=$(./main -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
-    SSIM=$(./main -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
+    PSNR=$(NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
+    SSIM=$(NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
 
     echo "$PVD_COUNT,$CAPACITY,$PSNR,$SSIM,$RESULT" \
         >> "$COUNT_CSV"
@@ -58,7 +58,7 @@ done
 
 PVD_COUNT=1
 
-CAPACITY=$(./main \
+CAPACITY=$(NIR \
     -A PVD \
     -i "$IMAGE" \
     --capacity \
@@ -82,14 +82,14 @@ do
 
     head -c "$PAYLOAD" /dev/urandom > "$TEMP_SECRET"
 
-    ./main -E \
+    NIR -E \
         -A PVD \
         -i "$IMAGE" \
         -s "$TEMP_SECRET" \
         -o "$TEMP_IMAGE" \
         --pvd-count "$PVD_COUNT"
 
-    ./main -D \
+    NIR -D \
         -A PVD \
         -i "$TEMP_IMAGE" \
         -o "$TEMP_DECODED" \
@@ -102,8 +102,8 @@ do
         RESULT="FAIL"
     fi
 
-    PSNR=$(./main -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
-    SSIM=$(./main -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
+    PSNR=$(NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
+    SSIM=$(NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
 
     echo "$PAYLOAD,$PERCENT,$PSNR,$SSIM,$RESULT" \
         >> "$PAYLOAD_CSV"

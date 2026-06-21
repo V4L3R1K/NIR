@@ -11,7 +11,7 @@ TEMP_IMAGE="out.jpg"
 
 # payload sweep
 
-CAPACITY=$(./main -A DWT -i "$IMAGE" --capacity)
+CAPACITY=$(NIR -A DWT -i "$IMAGE" --capacity)
 
 echo "Running payload sweep"
 
@@ -31,13 +31,13 @@ do
 
     head -c "$PAYLOAD" /dev/urandom > "$TEMP_SECRET"
 
-    ./main -E \
+    NIR -E \
         -A DWT \
         -i "$IMAGE" \
         -s "$TEMP_SECRET" \
         -o "$TEMP_IMAGE" 
 
-    ./main -D \
+    NIR -D \
         -A DWT \
         -i "$TEMP_IMAGE" \
         -o "$TEMP_DECODED"
@@ -49,8 +49,8 @@ do
         RESULT="FAIL"
     fi
 
-    PSNR=$(./main -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
-    SSIM=$(./main -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
+    PSNR=$(NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
+    SSIM=$(NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
 
     echo "$PAYLOAD,$PERCENT,$PSNR,$SSIM,$RESULT" \
         >> "$PAYLOAD_CSV"

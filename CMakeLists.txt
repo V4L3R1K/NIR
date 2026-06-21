@@ -43,5 +43,5 @@ set(SOURCES
     src/view/cli/CLIParser.cpp
 )
 
-add_executable(main ${SOURCES})
-target_link_libraries(main ${JPEG_LIBRARIES} OpenMP::OpenMP_CXX correct m)
+add_executable(NIR ${SOURCES})
+target_link_libraries(NIR ${JPEG_LIBRARIES} OpenMP::OpenMP_CXX correct m)

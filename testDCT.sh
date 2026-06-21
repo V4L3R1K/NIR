@@ -16,12 +16,12 @@ echo "quality,capacity,psnr,ssim,result" > "$QUALITY_CSV"
 
 for QUALITY in 1 10 20 30 40 50 60 70 80 90 100
 do
-    CAPACITY=$(./main -A DCT -i "$IMAGE" --capacity --jpeg-quality "$QUALITY")
+    CAPACITY=$(NIR -A DCT -i "$IMAGE" --capacity --jpeg-quality "$QUALITY")
     head -c "$CAPACITY" /dev/urandom > "$TEMP_SECRET"
     echo "Quality = $QUALITY"
 
-    ./main -E -A DCT -i "$IMAGE" -s "$TEMP_SECRET" -o "$TEMP_IMAGE" --jpeg-quality "$QUALITY"
-    ./main -D -A DCT -i "$TEMP_IMAGE" -o "$TEMP_DECODED" --jpeg-quality "$QUALITY"
+    NIR -E -A DCT -i "$IMAGE" -s "$TEMP_SECRET" -o "$TEMP_IMAGE" --jpeg-quality "$QUALITY"
+    NIR -D -A DCT -i "$TEMP_IMAGE" -o "$TEMP_DECODED" --jpeg-quality "$QUALITY"
 
     if diff "$TEMP_SECRET" "$TEMP_DECODED" > /dev/null
     then
@@ -30,8 +30,8 @@ do
         RESULT="FAIL"
     fi
 
-    PSNR=$(./main -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
-    SSIM=$(./main -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
+    PSNR=$(NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
+    SSIM=$(NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
 
     echo "$QUALITY,$CAPACITY,$PSNR,$SSIM,$RESULT" \
         >> "$QUALITY_CSV"
@@ -40,7 +40,7 @@ done
 # payload sweep
 
 QUALITY=90
-CAPACITY=$(./main -A DCT -i "$IMAGE" --capacity --jpeg-quality "$QUALITY")
+CAPACITY=$(NIR -A DCT -i "$IMAGE" --capacity --jpeg-quality "$QUALITY")
 
 echo "Running payload sweep (quality=$QUALITY)"
 
@@ -60,14 +60,14 @@ do
 
     head -c "$PAYLOAD" /dev/urandom > "$TEMP_SECRET"
 
-    ./main -E \
+    NIR -E \
         -A DCT \
         -i "$IMAGE" \
         -s "$TEMP_SECRET" \
         -o "$TEMP_IMAGE" \
         --jpeg-quality "$QUALITY"
 
-    ./main -D \
+    NIR -D \
         -A DCT \
         -i "$TEMP_IMAGE" \
         -o "$TEMP_DECODED" \
@@ -80,8 +80,8 @@ do
         RESULT="FAIL"
     fi
 
-    PSNR=$(./main -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
-    SSIM=$(./main -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
+    PSNR=$(NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
+    SSIM=$(NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
 
     echo "$PAYLOAD,$PERCENT,$PSNR,$SSIM,$RESULT" \
         >> "$PAYLOAD_CSV"

@@ -4,8 +4,8 @@ set -e
 clear
 cmake . -B build
 cd build
-make
-cp main ../main
+make -j
+cp NIR ../NIR
 cd ..
 
 rm -f ./*.csv
