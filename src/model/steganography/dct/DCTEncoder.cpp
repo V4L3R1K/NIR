@@ -73,83 +73,6 @@ bool DCTEncoder::coefficient_usable(int coef)
     return std::abs(coef) > 1;
 }
 
-void DCTEncoder::append_u32_bits(std::vector<uint8_t> &bits, uint32_t value)
-{
-    for (size_t i = 0; i < 32; ++i)
-    {
-        bits.push_back(static_cast<uint8_t>((value >> i) & 1U));
-    }
-}
-
-uint32_t DCTEncoder::read_u32_from_bits(const std::vector<uint8_t> &bits, size_t bit_offset)
-{
-    if (bit_offset + 32 > bits.size())
-    {
-        throw std::runtime_error("Not enough bits to read u32");
-    }
-
-    uint32_t value = 0;
-    for (size_t i = 0; i < 32; ++i)
-    {
-        value |= static_cast<uint32_t>((bits[bit_offset + i] & 1U) << i);
-    }
-    return value;
-}
-
-std::vector<uint8_t> DCTEncoder::pack_message(const SecretBytes &secret)
-{
-    if (secret.size() > static_cast<size_t>(UINT32_MAX))
-    {
-        throw std::runtime_error("Secret too large");
-    }
-
-    std::vector<uint8_t> bits;
-    bits.reserve((4 + secret.size()) * 8);
-
-    append_u32_bits(bits, static_cast<uint32_t>(secret.size()));
-
-    for (uint8_t byte : secret)
-    {
-        for (size_t i = 0; i < 8; ++i)
-        {
-            bits.push_back(static_cast<uint8_t>((byte >> i) & 1U));
-        }
-    }
-
-    return bits;
-}
-
-SecretBytes DCTEncoder::unpack_message(const std::vector<uint8_t> &bits)
-{
-    if (bits.size() < 32)
-    {
-        throw std::runtime_error("Corrupted payload: missing size field");
-    }
-
-    const uint32_t secret_size = read_u32_from_bits(bits, 0);
-    const size_t total_bits_needed = 32 + static_cast<size_t>(secret_size) * 8;
-
-    if (bits.size() < total_bits_needed)
-    {
-        throw std::runtime_error("Corrupted payload: not enough bits for secret");
-    }
-
-    SecretBytes secret(secret_size);
-    size_t bit_cursor = 32;
-
-    for (uint32_t i = 0; i < secret_size; ++i)
-    {
-        uint8_t value = 0;
-        for (size_t b = 0; b < 8; ++b)
-        {
-            value |= static_cast<uint8_t>((bits[bit_cursor++] & 1U) << b);
-        }
-        secret[i] = value;
-    }
-
-    return secret;
-}
-
 size_t DCTEncoder::get_capacity(const Image &input) const
 {
     std::vector<uint8_t> rgb = image_to_rgb(input);
@@ -195,7 +118,7 @@ size_t DCTEncoder::get_capacity(const Image &input) const
     jpeg_read_header(&dinfo, TRUE);
     jvirt_barray_ptr *coef_arrays = jpeg_read_coefficients(&dinfo);
 
-    size_t capacity = 0;
+    size_t capacity_bits = 0;
 
     for (int comp = 0; comp < dinfo.num_components; ++comp)
     {
@@ -218,7 +141,7 @@ size_t DCTEncoder::get_capacity(const Image &input) const
                 {
                     if (coefficient_usable(block[k]))
                     {
-                        ++capacity;
+                        ++capacity_bits;
                     }
                 }
             }
@@ -229,7 +152,7 @@ size_t DCTEncoder::get_capacity(const Image &input) const
     jpeg_destroy_compress(&cinfo);
     std::free(jpeg_buffer);
 
-    return capacity;
+    return capacity_bits / 8;
 }
 
 void DCTEncoder::embed_bits_in_coefficients(jpeg_decompress_struct &dinfo,
@@ -341,7 +264,17 @@ void DCTEncoder::encode(const Image &input,
                         const std::string &output_path)
 {
     std::vector<uint8_t> rgb = image_to_rgb(input);
-    std::vector<uint8_t> payload_bits = pack_message(secret);
+
+    // Convert secret bytes to bit vector
+    std::vector<uint8_t> payload_bits;
+    payload_bits.reserve(secret.size() * 8);
+    for (uint8_t byte : secret)
+    {
+        for (size_t i = 0; i < 8; ++i)
+        {
+            payload_bits.push_back(static_cast<uint8_t>((byte >> i) & 1U));
+        }
+    }
 
     jpeg_compress_struct cinfo;
     jpeg_error_mgr jerr;
@@ -384,7 +317,7 @@ void DCTEncoder::encode(const Image &input,
     jpeg_read_header(&dinfo, TRUE);
     jvirt_barray_ptr *coef_arrays = jpeg_read_coefficients(&dinfo);
 
-    size_t capacity = 0;
+    size_t capacity_bits = 0;
 
     for (int comp = 0; comp < dinfo.num_components; ++comp)
     {
@@ -407,19 +340,27 @@ void DCTEncoder::encode(const Image &input,
                 {
                     if (coefficient_usable(block[k]))
                     {
-                        ++capacity;
+                        ++capacity_bits;
                     }
                 }
             }
         }
     }
 
-    if (payload_bits.size() > capacity)
+    // Verify secret matches get_capacity
+    size_t expected_capacity = get_capacity(input);
+    if (secret.size() != expected_capacity)
     {
         jpeg_destroy_decompress(&dinfo);
         jpeg_destroy_compress(&cinfo);
         std::free(jpeg_buffer);
-        throw std::runtime_error("Secret does not fit into JPEG capacity");
+        throw std::runtime_error("Secret size does not match capacity (call Secret::prepare first)");
+    }
+
+    // Use only as many bits as we have usable coefficients
+    if (payload_bits.size() > capacity_bits)
+    {
+        payload_bits.resize(capacity_bits);
     }
 
     embed_bits_in_coefficients(dinfo, coef_arrays, payload_bits);
@@ -473,14 +414,52 @@ SecretBytes DCTEncoder::decode(const std::string &input_path)
     jpeg_read_header(&dinfo, TRUE);
     jvirt_barray_ptr *coef_arrays = jpeg_read_coefficients(&dinfo);
 
-    std::vector<uint8_t> header_bits = extract_bits_from_coefficients(dinfo, coef_arrays, 32);
-    const uint32_t secret_size = read_u32_from_bits(header_bits, 0);
+    // Calculate capacity bits
+    size_t capacity_bits = 0;
+    for (int comp = 0; comp < dinfo.num_components; ++comp)
+    {
+        const jpeg_component_info &ci = dinfo.comp_info[comp];
 
-    const size_t total_bits_needed = 32 + static_cast<size_t>(secret_size) * 8;
+        for (JDIMENSION row = 0; row < ci.height_in_blocks; ++row)
+        {
+            JBLOCKARRAY block_rows = (*dinfo.mem->access_virt_barray)(
+                reinterpret_cast<j_common_ptr>(&dinfo),
+                coef_arrays[comp],
+                row,
+                static_cast<JDIMENSION>(1),
+                FALSE);
+
+            for (JDIMENSION col = 0; col < ci.width_in_blocks; ++col)
+            {
+                JCOEFPTR block = block_rows[0][col];
+
+                for (int k = 1; k < DCT_COEF_COUNT; ++k)
+                {
+                    if (coefficient_usable(block[k]))
+                    {
+                        ++capacity_bits;
+                    }
+                }
+            }
+        }
+    }
+
+    size_t capacity_bytes = capacity_bits / 8;
+    size_t total_bits_needed = capacity_bytes * 8;
+
     std::vector<uint8_t> all_bits = extract_bits_from_coefficients(dinfo, coef_arrays, total_bits_needed);
 
     jpeg_destroy_decompress(&dinfo);
     std::fclose(infile);
 
-    return unpack_message(all_bits);
+    // Convert bits to bytes
+    SecretBytes result(capacity_bytes, 0);
+    for (size_t i = 0; i < total_bits_needed; ++i)
+    {
+        size_t byte_idx = i / 8;
+        uint8_t bit_in_byte = i % 8;
+        result[byte_idx] |= (all_bits[i] & 1U) << bit_in_byte;
+    }
+
+    return result;
 }

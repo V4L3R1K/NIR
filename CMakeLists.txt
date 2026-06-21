@@ -14,10 +14,16 @@ find_package(OpenMP REQUIRED)
 # libjpeg
 find_package(JPEG REQUIRED)
 
+# libcorrect (Reed-Solomon)
+set(LIBCORRECT_DIR ${CMAKE_SOURCE_DIR}/third_party/libcorrect)
+set(LIBCORRECT_INCLUDE_DIR ${LIBCORRECT_DIR}/include)
+set(LIBCORRECT_LIBRARY ${LIBCORRECT_DIR}/build/lib/libcorrect.a)
+
 include_directories(
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/third_party
     ${JPEG_INCLUDE_DIR}
+    ${LIBCORRECT_INCLUDE_DIR}
 )
 
 set(SOURCES
@@ -40,4 +46,4 @@ set(SOURCES
 )
 
 add_executable(main ${SOURCES})
-target_link_libraries(main ${JPEG_LIBRARIES} OpenMP::OpenMP_CXX)
+target_link_libraries(main ${JPEG_LIBRARIES} OpenMP::OpenMP_CXX ${LIBCORRECT_LIBRARY} m)

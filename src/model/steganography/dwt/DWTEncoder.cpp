@@ -11,11 +11,6 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-namespace
-{
-    constexpr int HEADER_BITS = 32; // 4 bytes for secret size
-}
-
 DWTEncoder::DWTEncoder(int levels)
     : levels(levels)
 {
@@ -116,114 +111,68 @@ void DWTEncoder::haar_2d_forward(std::vector<double> &data, int width, int heigh
     }
 }
 
-// ========== Pack/Unpack ==========
-
-void DWTEncoder::append_u32_bits(std::vector<uint8_t> &bits, uint32_t value)
+// ========== Haar 2D Inverse ==========
+void DWTEncoder::haar_2d_inverse(std::vector<double> &data, int width, int height, int levels)
 {
-    for (size_t i = 0; i < 32; ++i)
+    // We need to reconstruct starting from the smallest level
+    int current_w = width / (1 << (levels - 1));
+    int current_h = height / (1 << (levels - 1));
+
+    for (int level = levels - 1; level >= 0; --level)
     {
-        bits.push_back(static_cast<uint8_t>((value >> i) & 1U));
-    }
-}
-
-uint32_t DWTEncoder::read_u32_from_bits(const std::vector<uint8_t> &bits, size_t bit_offset)
-{
-    if (bit_offset + 32 > bits.size())
-    {
-        throw std::runtime_error("Not enough bits to read u32");
-    }
-
-    uint32_t value = 0;
-    for (size_t i = 0; i < 32; ++i)
-    {
-        value |= static_cast<uint32_t>((bits[bit_offset + i] & 1U) << i);
-    }
-    return value;
-}
-
-std::vector<uint8_t> DWTEncoder::pack_message(const SecretBytes &secret)
-{
-    if (secret.size() > static_cast<size_t>(UINT32_MAX))
-    {
-        throw std::runtime_error("Secret too large");
-    }
-
-    std::vector<uint8_t> bits;
-    bits.reserve(HEADER_BITS + secret.size() * 8);
-
-    append_u32_bits(bits, static_cast<uint32_t>(secret.size()));
-
-    for (uint8_t byte : secret)
-    {
-        for (size_t i = 0; i < 8; ++i)
+        // Process columns (inverse)
+        for (int x = 0; x < current_w; ++x)
         {
-            bits.push_back(static_cast<uint8_t>((byte >> i) & 1U));
+            for (int y = 0; y < current_h; y += 2)
+            {
+                if (y + 1 >= current_h)
+                    continue;
+                double avg = data[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)];
+                double diff = data[static_cast<size_t>(y + 1) * static_cast<size_t>(width) + static_cast<size_t>(x)];
+                double a = avg + diff;
+                double b = avg - diff;
+                data[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)] = a;
+                data[static_cast<size_t>(y + 1) * static_cast<size_t>(width) + static_cast<size_t>(x)] = b;
+            }
         }
-    }
 
-    return bits;
-}
-
-SecretBytes DWTEncoder::unpack_message(const std::vector<uint8_t> &bits)
-{
-    if (bits.size() < HEADER_BITS)
-    {
-        throw std::runtime_error("Corrupted payload: missing size field");
-    }
-
-    const uint32_t secret_size = read_u32_from_bits(bits, 0);
-    const size_t total_bits_needed = HEADER_BITS + static_cast<size_t>(secret_size) * 8;
-
-    if (bits.size() < total_bits_needed)
-    {
-        throw std::runtime_error("Corrupted payload: not enough bits for secret");
-    }
-
-    SecretBytes secret(secret_size);
-    size_t bit_cursor = HEADER_BITS;
-
-    for (uint32_t i = 0; i < secret_size; ++i)
-    {
-        uint8_t value = 0;
-        for (size_t b = 0; b < 8; ++b)
+        // Process rows (inverse)
+        for (int y = 0; y < current_h; ++y)
         {
-            value |= static_cast<uint8_t>((bits[bit_cursor++] & 1U) << b);
+            for (int x = 0; x < current_w; x += 2)
+            {
+                if (x + 1 >= current_w)
+                    continue;
+                double avg = data[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)];
+                double diff = data[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x + 1)];
+                double a = avg + diff;
+                double b = avg - diff;
+                data[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)] = a;
+                data[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x + 1)] = b;
+            }
         }
-        secret[i] = value;
-    }
 
-    return secret;
+        current_w *= 2;
+        current_h *= 2;
+    }
 }
 
 // ========== get_capacity ==========
-// DWT-based capacity estimation: count wavelet detail coefficients
-// with |value| >= 0.5 across all channels. The actual embedding is
-// done in the spatial domain (1 LSB per channel per byte).
-// For simplicity and robustness, we return the total pixel bytes
-// minus the 4-byte header, matching spatial-domain LSB capacity.
 size_t DWTEncoder::get_capacity(const Image &input) const
 {
     std::vector<uint8_t> rgb = image_to_rgb(input);
-    size_t total_bits = rgb.size(); // width * height * 3 (one bit per byte)
-
-    if (total_bits < HEADER_BITS)
-        return 0;
-
-    return (total_bits - HEADER_BITS) / 8;
+    return rgb.size() / 8; // 1 bit per byte
 }
 
 // ========== encode ==========
-// Spatial-domain LSB embedding, 1 bit per channel per pixel.
-// The DWT is only used for capacity estimation (in get_capacity).
 void DWTEncoder::encode(const Image &input,
                         const SecretBytes &secret,
                         const std::string &output_path)
 {
     std::vector<uint8_t> rgb = image_to_rgb(input);
-    std::vector<uint8_t> payload_bits = pack_message(secret);
 
-    size_t total_bits_needed = payload_bits.size();
-    size_t total_bits_available = rgb.size(); // width * height * 3, one bit per byte
+    size_t total_bits_needed = secret.size() * 8;
+    size_t total_bits_available = rgb.size();
 
     if (total_bits_needed > total_bits_available)
     {
@@ -233,7 +182,9 @@ void DWTEncoder::encode(const Image &input,
     // Embed into LSB of each RGB byte
     for (size_t i = 0; i < total_bits_needed; ++i)
     {
-        uint8_t desired_bit = payload_bits[i] & 1U;
+        size_t byte_idx = i / 8;
+        uint8_t bit_in_byte = i % 8;
+        uint8_t desired_bit = (secret[byte_idx] >> bit_in_byte) & 1U;
         rgb[i] = (rgb[i] & 0xFE) | desired_bit;
     }
 
@@ -256,34 +207,17 @@ SecretBytes DWTEncoder::decode(const std::string &input_path)
     std::vector<uint8_t> rgb = image_to_rgb(img);
     size_t total_bytes = rgb.size();
 
-    // Extract header (32 bits) from LSB
-    std::vector<uint8_t> header_bits;
-    header_bits.reserve(HEADER_BITS);
-    for (size_t i = 0; i < HEADER_BITS && i < total_bytes; ++i)
+    size_t capacity = total_bytes / 8;
+    size_t total_bits_needed = capacity * 8;
+
+    SecretBytes result(capacity, 0);
+    for (size_t i = 0; i < total_bits_needed && i < total_bytes; ++i)
     {
-        header_bits.push_back(rgb[i] & 1U);
+        size_t byte_idx = i / 8;
+        uint8_t bit_in_byte = i % 8;
+        uint8_t bit = rgb[i] & 1U;
+        result[byte_idx] |= (bit << bit_in_byte);
     }
 
-    if (header_bits.size() < HEADER_BITS)
-    {
-        throw std::runtime_error("Not enough data to extract header");
-    }
-
-    const uint32_t secret_size = read_u32_from_bits(header_bits, 0);
-    const size_t total_bits_needed = HEADER_BITS + static_cast<size_t>(secret_size) * 8;
-
-    if (total_bits_needed > total_bytes)
-    {
-        throw std::runtime_error("Not enough data to extract payload");
-    }
-
-    // Extract all bits
-    std::vector<uint8_t> all_bits;
-    all_bits.reserve(total_bits_needed);
-    for (size_t i = 0; i < total_bits_needed; ++i)
-    {
-        all_bits.push_back(rgb[i] & 1U);
-    }
-
-    return unpack_message(all_bits);
+    return result;
 }
