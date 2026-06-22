@@ -17,7 +17,7 @@ echo "lsb_count,capacity,psnr,ssim,result" > "$COUNT_CSV"
 
 for LSB_COUNT in 1 2 3 4 5 6 7 8
 do
-    CAPACITY=$(NIR \
+    CAPACITY=$(./NIR \
         -A LSB \
         -i "$IMAGE" \
         --capacity \
@@ -27,14 +27,14 @@ do
 
     echo "LSB count = $LSB_COUNT"
 
-    NIR -E \
+    ./NIR -E \
         -A LSB \
         -i "$IMAGE" \
         -s "$TEMP_SECRET" \
         -o "$TEMP_IMAGE" \
         --lsb-count "$LSB_COUNT"
 
-    NIR -D \
+    ./NIR -D \
         -A LSB \
         -i "$TEMP_IMAGE" \
         -o "$TEMP_DECODED" \
@@ -47,8 +47,8 @@ do
         RESULT="FAIL"
     fi
 
-    PSNR=$(NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
-    SSIM=$(NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
+    PSNR=$(./NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
+    SSIM=$(./NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
 
     echo "$LSB_COUNT,$CAPACITY,$PSNR,$SSIM,$RESULT" \
         >> "$COUNT_CSV"
@@ -58,7 +58,7 @@ done
 
 LSB_COUNT=1
 
-CAPACITY=$(NIR \
+CAPACITY=$(./NIR \
     -A LSB \
     -i "$IMAGE" \
     --capacity \
@@ -82,14 +82,14 @@ do
 
     head -c "$PAYLOAD" /dev/urandom > "$TEMP_SECRET"
 
-    NIR -E \
+    ./NIR -E \
         -A LSB \
         -i "$IMAGE" \
         -s "$TEMP_SECRET" \
         -o "$TEMP_IMAGE" \
         --lsb-count "$LSB_COUNT"
 
-    NIR -D \
+    ./NIR -D \
         -A LSB \
         -i "$TEMP_IMAGE" \
         -o "$TEMP_DECODED" \
@@ -102,8 +102,8 @@ do
         RESULT="FAIL"
     fi
 
-    PSNR=$(NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
-    SSIM=$(NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
+    PSNR=$(./NIR -C -A PSNR -i "$IMAGE" -i "$TEMP_IMAGE")
+    SSIM=$(./NIR -C -A SSIM -i "$IMAGE" -i "$TEMP_IMAGE")
 
     echo "$PAYLOAD,$PERCENT,$PSNR,$SSIM,$RESULT" \
         >> "$PAYLOAD_CSV"
