@@ -1,21 +1,21 @@
 #include "Controller.h"
 
-// Helper: compute max original data size for the given raw capacity
-// with RS(255,223) encoding plus 4-byte header
-static size_t max_original_size(size_t raw_capacity)
+// Helper: compute max data size for the given raw capacity
+// with RS(255,223) encoding and \0 terminator (1 byte overhead)
+static size_t max_data_size(size_t raw_capacity)
 {
     const size_t RS_BLOCK_TOTAL = 255;
     const size_t RS_BLOCK_DATA = 223;
     if (raw_capacity < RS_BLOCK_TOTAL)
     {
-        // Without RS: just 4 bytes header
-        return (raw_capacity >= 4) ? (raw_capacity - 4) : 0;
+        // Need 1 byte for \0 terminator
+        return (raw_capacity > 0) ? (raw_capacity - 1) : 0;
     }
     size_t num_blocks = raw_capacity / RS_BLOCK_TOTAL;
-    size_t total_data = num_blocks * RS_BLOCK_DATA;
-    if (total_data < 4)
+    // Reserve 1 byte for \0 terminator inside each total_data_slots
+    if (num_blocks * RS_BLOCK_DATA == 0)
         return 0;
-    return total_data - 4;
+    return num_blocks * RS_BLOCK_DATA - 1;
 }
 
 void Controller::perform(const Command &cmd)
@@ -30,26 +30,26 @@ void Controller::perform(const Command &cmd)
             LSBEncoder encoder;
             encoder.LSB_count = cmd.lsb_count;
             size_t cap = encoder.get_capacity(img);
-            std::cout << max_original_size(cap) << std::endl;
+            std::cout << max_data_size(cap) << std::endl;
         }
         else if (cmd.algorithm == "DCT")
         {
             DCTEncoder encoder(cmd.jpeg_quality);
             size_t cap = encoder.get_capacity(img);
-            std::cout << max_original_size(cap) << std::endl;
+            std::cout << max_data_size(cap) << std::endl;
         }
         else if (cmd.algorithm == "DWT")
         {
             DWTEncoder encoder;
             size_t cap = encoder.get_capacity(img);
-            std::cout << max_original_size(cap) << std::endl;
+            std::cout << max_data_size(cap) << std::endl;
         }
         else if (cmd.algorithm == "PVD")
         {
             PVDEncoder encoder;
             encoder.PVD_count = cmd.pvd_count;
             size_t cap = encoder.get_capacity(img);
-            std::cout << max_original_size(cap) << std::endl;
+            std::cout << max_data_size(cap) << std::endl;
         }
         else
             throw std::runtime_error("unknown algorithm for capacity");

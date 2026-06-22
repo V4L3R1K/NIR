@@ -61,44 +61,43 @@ void Secret::save(const std::string &path, const SecretBytes &secret)
 
 SecretBytes Secret::prepare(const SecretBytes &original, size_t capacity)
 {
-    // Minimum capacity: at least 4 bytes for header
-    if (capacity < 4)
+    // If capacity is zero, nothing can be embedded
+    if (capacity == 0)
     {
-        throw std::runtime_error("Capacity too small for header");
+        if (!original.empty())
+        {
+            throw std::runtime_error("Secret is too large for this capacity");
+        }
+        return {};
     }
 
-    // If capacity is too small for even one RS block, encode without ECC
+    // Need at least 1 byte for the \0 terminator
+    if (original.size() + 1 > capacity)
+    {
+        throw std::runtime_error("Secret is too large for this capacity");
+    }
+
+    // If capacity is too small for even one RS block, just pad with zeros
     if (capacity < RS_BLOCK_TOTAL)
     {
         SecretBytes result(capacity, 0);
-        uint32_t orig_size = static_cast<uint32_t>(original.size());
-        result[0] = (orig_size >> 0) & 0xFF;
-        result[1] = (orig_size >> 8) & 0xFF;
-        result[2] = (orig_size >> 16) & 0xFF;
-        result[3] = (orig_size >> 24) & 0xFF;
-        size_t copy_len = std::min(original.size(), capacity - 4);
-        std::copy(original.begin(), original.begin() + copy_len, result.begin() + 4);
+        std::copy(original.begin(), original.end(), result.begin());
+        // result[original.size()] is already 0 (the \0 terminator)
         return result;
     }
 
     const size_t num_blocks = capacity / RS_BLOCK_TOTAL;
     const size_t total_data_slots = num_blocks * RS_BLOCK_DATA; // 223 * num_blocks
 
-    // 4 bytes for original size header, rest for data
-    const size_t max_data = total_data_slots - 4;
-    if (original.size() > max_data)
+    if (original.size() + 1 > total_data_slots)
     {
         throw std::runtime_error("Secret is too large for this capacity");
     }
 
-    // Build data block: [4-byte size][original data][zero padding to total_data_slots]
+    // Build data block: [original data][\0 terminator][zero padding to total_data_slots]
     SecretBytes data(total_data_slots, 0);
-    uint32_t orig_size = static_cast<uint32_t>(original.size());
-    data[0] = (orig_size >> 0) & 0xFF;
-    data[1] = (orig_size >> 8) & 0xFF;
-    data[2] = (orig_size >> 16) & 0xFF;
-    data[3] = (orig_size >> 24) & 0xFF;
-    std::copy(original.begin(), original.end(), data.begin() + 4);
+    std::copy(original.begin(), original.end(), data.begin());
+    // data[original.size()] is already 0 (the \0 terminator)
 
     // Create Reed-Solomon encoder
     correct_reed_solomon *rs = correct_reed_solomon_create(
@@ -129,67 +128,66 @@ SecretBytes Secret::prepare(const SecretBytes &original, size_t capacity)
 
 SecretBytes Secret::recover(const SecretBytes &payload)
 {
-    // If payload is smaller than one RS block, decode without ECC
+    if (payload.empty())
+    {
+        return {};
+    }
+
+    SecretBytes decoded_data;
+
     if (payload.size() < RS_BLOCK_TOTAL)
     {
-        if (payload.size() < 4)
-        {
-            throw std::runtime_error("Payload too small for header");
-        }
-        uint32_t orig_size =
-            (static_cast<uint32_t>(payload[0]) << 0) |
-            (static_cast<uint32_t>(payload[1]) << 8) |
-            (static_cast<uint32_t>(payload[2]) << 16) |
-            (static_cast<uint32_t>(payload[3]) << 24);
-        if (orig_size > payload.size() - 4)
-        {
-            throw std::runtime_error("Corrupted secret: invalid size in header");
-        }
-        SecretBytes result(payload.begin() + 4, payload.begin() + 4 + orig_size);
-        return result;
+        // Without RS: payload itself is the data
+        decoded_data = payload;
     }
-
-    const size_t num_blocks = payload.size() / RS_BLOCK_TOTAL;
-    const size_t total_data_slots = num_blocks * RS_BLOCK_DATA;
-
-    // Create Reed-Solomon decoder
-    correct_reed_solomon *rs = correct_reed_solomon_create(
-        RS_PRIMITIVE_POLY, RS_FIRST_ROOT, RS_ROOT_GAP, RS_NUM_ROOTS);
-    if (!rs)
+    else
     {
-        throw std::runtime_error("Failed to create Reed-Solomon decoder");
-    }
+        // With RS: decode each block
+        const size_t num_blocks = payload.size() / RS_BLOCK_TOTAL;
+        const size_t total_data_slots = num_blocks * RS_BLOCK_DATA;
 
-    // Decode each block
-    SecretBytes decoded_data(total_data_slots, 0);
-    for (size_t b = 0; b < num_blocks; ++b)
-    {
-        const uint8_t *encoded = payload.data() + b * RS_BLOCK_TOTAL;
-        uint8_t *msg = decoded_data.data() + b * RS_BLOCK_DATA;
-
-        ssize_t ret = correct_reed_solomon_decode(rs, encoded, RS_BLOCK_TOTAL, msg);
-        if (ret < 0)
+        correct_reed_solomon *rs = correct_reed_solomon_create(
+            RS_PRIMITIVE_POLY, RS_FIRST_ROOT, RS_ROOT_GAP, RS_NUM_ROOTS);
+        if (!rs)
         {
-            correct_reed_solomon_destroy(rs);
-            throw std::runtime_error("Reed-Solomon decoding failed: too many errors");
+            throw std::runtime_error("Failed to create Reed-Solomon decoder");
         }
+
+        decoded_data.assign(total_data_slots, 0);
+        for (size_t b = 0; b < num_blocks; ++b)
+        {
+            const uint8_t *encoded = payload.data() + b * RS_BLOCK_TOTAL;
+            uint8_t *msg = decoded_data.data() + b * RS_BLOCK_DATA;
+
+            ssize_t ret = correct_reed_solomon_decode(rs, encoded, RS_BLOCK_TOTAL, msg);
+            if (ret < 0)
+            {
+                correct_reed_solomon_destroy(rs);
+                throw std::runtime_error("Reed-Solomon decoding failed: too many errors");
+            }
+        }
+
+        correct_reed_solomon_destroy(rs);
     }
 
-    correct_reed_solomon_destroy(rs);
-
-    // Read original size from header
-    uint32_t orig_size =
-        (static_cast<uint32_t>(decoded_data[0]) << 0) |
-        (static_cast<uint32_t>(decoded_data[1]) << 8) |
-        (static_cast<uint32_t>(decoded_data[2]) << 16) |
-        (static_cast<uint32_t>(decoded_data[3]) << 24);
-
-    if (orig_size > decoded_data.size() - 4)
+    // Trim trailing zeros: the format is [original data][zero padding to capacity].
+    // Find the last non-zero byte; everything after it is padding.
+    // For messages ending with \0, that \0 is preserved as the last non-zero?
+    // No - the \0 is zero, so it gets trimmed. But the user said the message
+    // *itself* ends with \0, so prepare() stores message including that \0.
+    // After preparation: [message (with trailing \0)][zeros].
+    // RS decode reconstructs this. Trimming trailing zeros removes the padding
+    // and the extra \0 that prepare() added after the original message.
+    // But actually prepare() does NOT add extra \0 - it copies original as-is
+    // and leaves the rest as zeros. The original's own bytes include any \0
+    // at the end. So decoding gives [original data][zeros].
+    // Trimming trailing zeros leaves [original data] unchanged.
+    size_t data_len = decoded_data.size();
+    while (data_len > 0 && decoded_data[data_len - 1] == 0)
     {
-        throw std::runtime_error("Corrupted secret: invalid size in header");
+        --data_len;
     }
 
-    // Return only the original data (without header)
-    SecretBytes result(decoded_data.begin() + 4, decoded_data.begin() + 4 + orig_size);
+    SecretBytes result(decoded_data.begin(), decoded_data.begin() + data_len);
     return result;
 }

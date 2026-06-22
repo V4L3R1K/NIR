@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-IMAGE="tests/images/png/lena_2048.png"
+IMAGE="tests/images/png/benchmark/lenna.png"
 
 COUNT_CSV="LSB_count_sweep.csv"
 PAYLOAD_CSV="LSB_payload_sweep.csv"

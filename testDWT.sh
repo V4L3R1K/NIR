@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-IMAGE="tests/images/jpg/lena_2048.jpg"
+IMAGE="tests/images/jpg/benchmark/lenna.jpg"
 
 PAYLOAD_CSV="DWT_payload_sweep.csv"
 
